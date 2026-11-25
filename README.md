@@ -2,6 +2,14 @@
 
 Interface PHP simples para consultar um dispositivo pelo UUID e mostrar seus 50 eventos mais recentes. O navegador acessa apenas o PHP; o PHP chama o backend Java com o token administrativo. Não há conexão PHP com o banco de dados.
 
+Este repositório contém somente a web. A integração local com o gateway e o PostgreSQL está no repositório [access-infra](https://github.com/Ivictors/access-infra).
+
+## Imagem de contêiner
+
+O `Dockerfile` usa PHP 8.4 com Apache e extensão cURL. A raiz HTTP é `public/`; `src/` fica fora dela. Para validar a imagem isoladamente, execute `docker build -t access-web:local .` e confira a sintaxe com `docker run --rm access-web:local php -l /var/www/html/public/index.php`. As variáveis `ACCESS_WEB_PASSWORD_HASH`, `ACCESS_GATEWAY_ADMIN_TOKEN` e `ACCESS_GATEWAY_BASE_URL` devem ser fornecidas em tempo de execução.
+
+A CI valida a imagem e a sintaxe PHP. Tags `v*` publicam uma imagem no GHCR após essa validação; publicar a imagem não implanta a web.
+
 ## Requisitos
 
 - PHP 8.1 ou superior, com extensão cURL habilitada.
