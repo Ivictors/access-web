@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/bootstrap.php';
 require_once __DIR__ . '/../src/GatewayClient.php';
+require_once __DIR__ . '/../src/LoginThrottle.php';
 
 $error = null;
 $device = null;
@@ -32,15 +33,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($hash === '') {
             http_response_code(503);
             $error = 'A senha da página ainda não foi configurada no servidor.';
-        } elseif (!is_string($password) || !password_verify($password, $hash)) {
-            $error = 'Senha inválida.';
         } else {
-            session_regenerate_id(true);
-            $_SESSION['authenticated'] = true;
-            $_SESSION['last_activity'] = time();
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-            header('Location: /', true, 303);
-            exit;
+            try {
+                $result = (new LoginThrottle())->verify(is_string($password) ? $password : '', $hash);
+                if ($result['status'] === 'blocked') {
+                    http_response_code(429);
+                    header('Retry-After: ' . $result['retryAfter']);
+                    $error = 'Não foi possível entrar. Tente novamente mais tarde.';
+                } elseif ($result['status'] === 'invalid') {
+                    $error = 'Não foi possível entrar. Confira a senha.';
+                } else {
+                    session_regenerate_id(true);
+                    $_SESSION['authenticated'] = true;
+                    $_SESSION['last_activity'] = time();
+                    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                    header('Location: /', true, 303);
+                    exit;
+                }
+            } catch (RuntimeException $exception) {
+                http_response_code(503);
+                $error = 'O login está temporariamente indisponível.';
+            }
         }
     } else {
         http_response_code(400);

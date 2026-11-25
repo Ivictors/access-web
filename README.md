@@ -8,7 +8,7 @@ Este repositório contém somente a web. A integração local com o gateway e o 
 
 O `Dockerfile` usa PHP 8.4 com Apache e extensão cURL. A raiz HTTP é `public/`; `src/` fica fora dela. Para validar a imagem isoladamente, execute `docker build -t access-web:local .` e confira a sintaxe com `docker run --rm access-web:local php -l /var/www/html/public/index.php`. As variáveis `ACCESS_WEB_PASSWORD_HASH`, `ACCESS_GATEWAY_ADMIN_TOKEN` e `ACCESS_GATEWAY_BASE_URL` devem ser fornecidas em tempo de execução.
 
-A CI valida a imagem e a sintaxe PHP. Tags `v*` publicam uma imagem no GHCR após essa validação; publicar a imagem não implanta a web.
+A CI valida a imagem, a sintaxe PHP e o bloqueio de tentativas de login. Tags `v*` publicam uma imagem no GHCR após essa validação; publicar a imagem não implanta a web.
 
 ## Requisitos
 
@@ -36,6 +36,8 @@ php -S 127.0.0.1:8000 -t public
 Abra `http://127.0.0.1:8000`, entre com a senha da página e informe o UUID do dispositivo. O servidor embutido do PHP é apenas para desenvolvimento local; mantenha-o vinculado a `127.0.0.1`.
 
 O PHP expira sessões após 30 minutos sem atividade e não armazena o token do gateway na sessão. Na publicação em rede, configure HTTPS e cookies `Secure` no servidor web antes de disponibilizar a página.
+
+O login aceita até quatro senhas incorretas em uma janela de 15 minutos. A quinta falha bloqueia novas tentativas por 15 minutos, inclusive com a senha correta. O contador é único para a senha da página, compartilhado entre sessões e armazenado em `access-web-login/login-attempts.json` dentro do diretório temporário do PHP, fora de `public/`. O processo PHP precisa poder escrever nesse diretório; se não puder, o login fica indisponível. Um login válido limpa o contador. O estado em `/tmp` é perdido quando o contêiner é substituído; em implantação de rede, monte esse diretório em armazenamento persistente e compartilhado por todas as instâncias.
 
 ### Alternativa com Docker
 

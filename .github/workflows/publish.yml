@@ -26,6 +26,8 @@ jobs:
           docker run --rm access-web:verify php -l /var/www/html/public/index.php
           docker run --rm access-web:verify php -l /var/www/html/src/bootstrap.php
           docker run --rm access-web:verify php -l /var/www/html/src/GatewayClient.php
+          docker run --rm access-web:verify php -l /var/www/html/src/LoginThrottle.php
+          docker run --rm -v "$PWD:/app:ro" -w /app access-web:verify php tests/LoginThrottleTest.php
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:

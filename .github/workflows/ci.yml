@@ -21,3 +21,6 @@ jobs:
           docker run --rm access-web:ci php -l /var/www/html/public/index.php
           docker run --rm access-web:ci php -l /var/www/html/src/bootstrap.php
           docker run --rm access-web:ci php -l /var/www/html/src/GatewayClient.php
+          docker run --rm access-web:ci php -l /var/www/html/src/LoginThrottle.php
+      - name: Check login throttling
+        run: docker run --rm -v "$PWD:/app:ro" -w /app access-web:ci php tests/LoginThrottleTest.php
