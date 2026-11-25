@@ -1,0 +1,53 @@
+name: Publish image
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Require a commit from main
+        run: git merge-base --is-ancestor HEAD origin/main
+      - name: Build and check syntax
+        run: |
+          docker build -t access-web:verify .
+          docker run --rm access-web:verify php -l /var/www/html/public/index.php
+          docker run --rm access-web:verify php -l /var/www/html/src/bootstrap.php
+          docker run --rm access-web:verify php -l /var/www/html/src/GatewayClient.php
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepare image metadata
+        id: metadata
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: ghcr.io/ivictors/access-web
+          tags: |
+            type=ref,event=tag
+            type=sha,format=long
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+      - name: Publish image
+        id: push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+      - name: Record digest
+        run: echo "ghcr.io/ivictors/access-web@${{ steps.push.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
