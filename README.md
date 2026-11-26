@@ -51,3 +51,16 @@ docker run --rm -p 127.0.0.1:8000:8000 -v "${PWD}:/app:ro" -w /app `
 ```
 
 `host.docker.internal` permite ao PHP no contêiner chamar o Java em execução na máquina. A porta da página continua acessível apenas em `127.0.0.1`.
+
+## Padrão de documentação e configuração
+
+Este repositório existe para oferecer a interface web do Access Gateway. O README acima apresenta o escopo, a arquitetura e as tecnologias específicas do projeto; esta seção padroniza o ponto de entrada para quem deseja reproduzi-lo localmente.
+
+### Clonar e configurar
+
+~~~powershell
+git clone https://github.com/Ivictors/access-web.git
+cd access-web
+~~~
+
+Consulte os pré-requisitos e comandos de execução descritos neste README antes de iniciar. Use variáveis de ambiente, arquivos locais ignorados pelo Git e serviços de desenvolvimento para credenciais; não substitua placeholders por segredos no README e não versione chaves, tokens ou senhas.
