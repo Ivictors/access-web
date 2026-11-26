@@ -24,3 +24,5 @@ jobs:
           docker run --rm access-web:ci php -l /var/www/html/src/LoginThrottle.php
       - name: Check login throttling
         run: docker run --rm -v "$PWD:/app:ro" -w /app access-web:ci php tests/LoginThrottleTest.php
+      - name: Check HTTP login and session flow
+        run: python3 tests/http_flow_test.py

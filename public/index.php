@@ -35,7 +35,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'A senha da página ainda não foi configurada no servidor.';
         } else {
             try {
-                $result = (new LoginThrottle())->verify(is_string($password) ? $password : '', $hash);
+                $result = (new LoginThrottle())->verify(
+                    LoginThrottle::originFromServer($_SERVER),
+                    is_string($password) ? $password : '',
+                    $hash
+                );
                 if ($result['status'] === 'blocked') {
                     http_response_code(429);
                     header('Retry-After: ' . $result['retryAfter']);
