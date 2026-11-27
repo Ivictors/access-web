@@ -27,6 +27,7 @@ jobs:
           docker run --rm access-web:verify php -l /var/www/html/src/bootstrap.php
           docker run --rm access-web:verify php -l /var/www/html/src/GatewayClient.php
           docker run --rm access-web:verify php -l /var/www/html/src/LoginThrottle.php
+          docker run --rm access-web:verify php -l /var/www/html/src/OidcClient.php
           docker run --rm -v "$PWD:/app:ro" -w /app access-web:verify php tests/LoginThrottleTest.php
           ACCESS_WEB_TEST_IMAGE=access-web:verify python3 tests/http_flow_test.py
       - name: Log in to GitHub Container Registry
