@@ -8,7 +8,7 @@ Este repositório contém somente a web. A integração local com o gateway e o 
 
 O `Dockerfile` usa PHP 8.4 com Apache e extensão cURL. A raiz HTTP é `public/`; `src/` fica fora dela. Para validar a imagem isoladamente, execute `docker build -t access-web:local .` e confira a sintaxe com `docker run --rm access-web:local php -l /var/www/html/public/index.php`. As variáveis `ACCESS_WEB_PASSWORD_HASH`, `ACCESS_GATEWAY_ADMIN_TOKEN` e `ACCESS_GATEWAY_BASE_URL` devem ser fornecidas em tempo de execução.
 
-A CI valida a imagem, a sintaxe PHP e o bloqueio de tentativas de login. Tags `v*` publicam uma imagem no GHCR após essa validação; publicar a imagem não implanta a web.
+A CI valida a imagem, a sintaxe PHP, o bloqueio de tentativas e o fluxo HTTP de login. Um push em `main` deve executar `CI`; uma nova tag Git `v*` apontando para um commit de `main` deve executar `Publish image`. Esse workflow publica `ghcr.io/ivictors/access-web:<tag Git>` e `ghcr.io/ivictors/access-web:sha-<commit completo>`, e registra o digest imutável no resumo da execução. A tag da imagem é um nome móvel; para uma release reproduzível, use `ghcr.io/ivictors/access-web@sha256:<digest>` obtido no workflow. Publicar a imagem não implanta a web. O gatilho automático de push/tag ainda depende de verificação no GitHub (issue #1).
 
 ## Requisitos
 
@@ -37,7 +37,10 @@ Abra `http://127.0.0.1:8000`, entre com a senha da página e informe o UUID do d
 
 O PHP expira sessões após 30 minutos sem atividade e não armazena o token do gateway na sessão. Na publicação em rede, configure HTTPS e cookies `Secure` no servidor web antes de disponibilizar a página.
 
-O login aceita até quatro senhas incorretas em uma janela de 15 minutos. A quinta falha bloqueia novas tentativas por 15 minutos, inclusive com a senha correta. O contador é único para a senha da página, compartilhado entre sessões e armazenado em `access-web-login/login-attempts.json` dentro do diretório temporário do PHP, fora de `public/`. O processo PHP precisa poder escrever nesse diretório; se não puder, o login fica indisponível. Um login válido limpa o contador. O estado em `/tmp` é perdido quando o contêiner é substituído; em implantação de rede, monte esse diretório em armazenamento persistente e compartilhado por todas as instâncias.
+O login aceita até quatro senhas incorretas por endereço IP de conexão em uma janela de 15 minutos. A quinta falha bloqueia novas tentativas dessa origem por 15 minutos, inclusive com a senha correta. O servidor usa `REMOTE_ADDR`; cabeçalhos como `X-Forwarded-For` não são aceitos pela aplicação. Atrás de um proxy, configure o Apache para reconhecer o IP somente dos proxies confiáveis e bloqueie o acesso direto ao PHP antes de usar esta proteção em rede. Um IP compartilhado também compartilha o limite.
+
+O estado fica em `access-web-login/login-attempts.json` dentro do diretório temporário do PHP, fora de `public/`. Entradas vencidas são removidas em cada tentativa. O arquivo aceita até 4096 origens e 1 MiB; se atingir o limite ou ficar indisponível/corrompido, novos logins falham de forma fechada. Um login válido limpa o contador da própria origem. O estado em `/tmp` é perdido quando o contêiner é substituído; em implantação com várias instâncias, monte esse diretório em armazenamento persistente e compartilhado.
+Ao atualizar da versão com contador global, um bloqueio ainda ativo conserva seu prazo original. Depois disso, o próximo login migra o arquivo para contadores por origem.
 
 ### Alternativa com Docker
 
