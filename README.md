@@ -1,6 +1,12 @@
 # Consulta web do Access Gateway
 
-Interface PHP simples para consultar um dispositivo pelo UUID e mostrar seus 50 eventos mais recentes. O navegador acessa apenas o PHP; o PHP chama o backend Java com o token administrativo. Não há conexão PHP com o banco de dados.
+## Login OIDC opcional
+
+Com `ACCESS_WEB_OIDC_ENABLED=true`, a página usa o Keycloak pelo fluxo Authorization Code com PKCE S256. Configure `ACCESS_OIDC_PUBLIC_BASE_URL`, `ACCESS_OIDC_INTERNAL_BASE_URL`, `ACCESS_OIDC_CLIENT_ID`, `ACCESS_OIDC_CLIENT_SECRET` e `ACCESS_OIDC_REDIRECT_URI`; o `access-infra/compose.oidc.yaml` fornece os valores locais. O navegador é redirecionado ao endereço público do Keycloak, enquanto o PHP troca o código e consulta o usuário pelo endereço interno. A web valida a assinatura do ID token com as chaves do realm. O token de acesso fica apenas na sessão PHP e é enviado ao gateway. A web renova o token quando necessário. O logout encerra a sessão PHP e a sessão SSO no Keycloak.
+
+Sem essa opção, o login por senha e o token administrativo compartilhado continuam disponíveis para os testes existentes. No modo OIDC, `ACCESS_WEB_PASSWORD_HASH` e `ACCESS_GATEWAY_ADMIN_TOKEN` não são usados pela web.
+
+Interface PHP simples para consultar um dispositivo pelo UUID e mostrar seus 50 eventos mais recentes. O PHP chama o backend Java com o token do modo escolhido. Não há conexão PHP com o banco de dados.
 
 Este repositório contém somente a web. A integração local com o gateway e o PostgreSQL está no repositório [access-infra](https://github.com/Ivictors/access-infra).
 

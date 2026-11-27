@@ -9,7 +9,9 @@ final class GatewayClient
     public function __construct()
     {
         $this->baseUrl = rtrim(getenv('ACCESS_GATEWAY_BASE_URL') ?: 'http://127.0.0.1:8080', '/');
-        $this->token = getenv('ACCESS_GATEWAY_ADMIN_TOKEN') ?: '';
+        $this->token = (getenv('ACCESS_WEB_OIDC_ENABLED') === 'true')
+            ? (new OidcClient())->accessToken()
+            : (getenv('ACCESS_GATEWAY_ADMIN_TOKEN') ?: '');
 
         $parts = parse_url($this->baseUrl);
         if ($this->token === '' || !is_array($parts) ||

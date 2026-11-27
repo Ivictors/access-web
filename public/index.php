@@ -4,18 +4,68 @@ declare(strict_types=1);
 require_once __DIR__ . '/../src/bootstrap.php';
 require_once __DIR__ . '/../src/GatewayClient.php';
 require_once __DIR__ . '/../src/LoginThrottle.php';
+require_once __DIR__ . '/../src/OidcClient.php';
 
 $error = null;
 $device = null;
 $events = [];
 $deviceId = '';
 $authenticated = !empty($_SESSION['authenticated']);
+$oidcEnabled = getenv('ACCESS_WEB_OIDC_ENABLED') === 'true';
+
+if ($oidcEnabled && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    if (isset($_GET['oidc_callback'])) {
+        $state = $_GET['state'] ?? null;
+        $code = $_GET['code'] ?? null;
+        $expectedState = $_SESSION['oidc_state'] ?? null;
+        $nonce = $_SESSION['oidc_nonce'] ?? null;
+        $verifier = $_SESSION['oidc_verifier'] ?? null;
+        unset($_SESSION['oidc_state'], $_SESSION['oidc_nonce'], $_SESSION['oidc_verifier']);
+        if (!is_string($state) || !is_string($expectedState) ||
+            !hash_equals($expectedState, $state) || !is_string($code) ||
+            $code === '' || !is_string($nonce) || !is_string($verifier)) {
+            http_response_code(400);
+            $error = 'Resposta de login inválida.';
+        } else {
+            try {
+                (new OidcClient())->complete($code, $nonce, $verifier);
+                session_regenerate_id(true);
+                $_SESSION['authenticated'] = true;
+                $_SESSION['last_activity'] = time();
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                header('Location: /', true, 303);
+                exit;
+            } catch (RuntimeException $exception) {
+                http_response_code(503);
+                $error = 'Não foi possível concluir o login.';
+            }
+        }
+    } elseif (isset($_GET['login']) && !$authenticated) {
+        try {
+            $state = bin2hex(random_bytes(32));
+            $nonce = bin2hex(random_bytes(32));
+            $verifier = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+            $_SESSION['oidc_state'] = $state;
+            $_SESSION['oidc_nonce'] = $nonce;
+            $_SESSION['oidc_verifier'] = $verifier;
+            header('Location: ' . (new OidcClient())->authorizationUrl($state, $nonce, $verifier), true, 303);
+            exit;
+        } catch (RuntimeException $exception) {
+            http_response_code(503);
+            $error = 'Login indisponível.';
+        }
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_is_valid()) {
         http_response_code(400);
         $error = 'Formulário expirado. Recarregue a página e tente novamente.';
     } elseif (($_POST['action'] ?? '') === 'logout' && $authenticated) {
+        $logoutUrl = null;
+        if ($oidcEnabled && is_string($_SESSION['oidc_id_token'] ?? null)) {
+            $logoutUrl = (new OidcClient())->logoutUrl($_SESSION['oidc_id_token']);
+        }
         $_SESSION = [];
         session_destroy();
         setcookie(session_name(), '', [
@@ -25,9 +75,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'httponly' => true,
             'samesite' => 'Lax',
         ]);
-        header('Location: /', true, 303);
+        header('Location: ' . ($logoutUrl ?? '/'), true, 303);
         exit;
-    } elseif (($_POST['action'] ?? '') === 'login' && !$authenticated) {
+    } elseif (($_POST['action'] ?? '') === 'login' && !$authenticated && !$oidcEnabled) {
         $hash = getenv('ACCESS_WEB_PASSWORD_HASH') ?: '';
         $password = $_POST['password'] ?? null;
         if ($hash === '') {
@@ -124,6 +174,10 @@ if ($authenticated && $_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['devic
     <?php if (!$authenticated): ?>
         <section class="card login-card" aria-labelledby="login-title">
             <h2 id="login-title">Acesso administrativo</h2>
+            <?php if ($oidcEnabled): ?>
+                <p>Entre com sua conta do Keycloak para consultar o gateway.</p>
+                <a href="/?login=1">Entrar com Keycloak</a>
+            <?php else: ?>
             <p>Entre com a senha da página para consultar o gateway.</p>
             <form method="post" action="/">
                 <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
@@ -132,6 +186,7 @@ if ($authenticated && $_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['devic
                 <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
                 <button type="submit">Entrar</button>
             </form>
+            <?php endif; ?>
         </section>
     <?php else: ?>
         <section class="card" aria-labelledby="search-title">
